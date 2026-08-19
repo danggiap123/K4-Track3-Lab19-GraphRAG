@@ -1,0 +1,6 @@
+id,group,question,reference_answer,reference_evidence
+G01,factoid,Who was the CEO of Hugging Face in 2023?,Clément Delangue,Validate against instructor dump.
+G02,multi-hop,Which startups were founded by former Microsoft employees and later received investment from Google?,,TO_BE_FILLED_FROM_DATASET
+G03,cross-doc,Compare the direction of AI-related investments by Meta and Apple during 2023 using evidence from multiple articles.,,TO_BE_FILLED_FROM_DATASET
+G04,multi-hop,Find a company invested in by a major technology company that also developed a named AI technology; identify both relations and dates.,,TO_BE_FILLED_FROM_DATASET
+G05,cross-doc,Identify one technology connected to the same company in at least two news chunks and summarize how the relationship changed over time.,,TO_BE_FILLED_FROM_DATASET

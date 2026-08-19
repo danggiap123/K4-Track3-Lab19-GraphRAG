@@ -21,6 +21,9 @@ env/
 *.csv
 golden_dataset.csv
 !reports/*.csv
+# 2 file nop bat buoc + golden set: phai commit duoc
+!outputs/*.csv
+!data/golden_dataset.csv
 *.jsonl
 *.parquet
 *.pq
