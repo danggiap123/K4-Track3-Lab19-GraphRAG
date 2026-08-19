@@ -1,15 +1,14 @@
-# Báo Cáo Thực Hành & Thuyết Minh Kỹ Thuật — Lab 19: GraphRAG vs Flat RAG
+# Thuyết Minh Kỹ Thuật — Lab 19: GraphRAG vs Flat RAG
 
-**Học viên:** Đặng Nguyên Giáp
-**Khóa học:** AICB-K34 · Track 3: GraphRAG
-**Ngày thực hiện:** 19/08/2026
-
+**Học viên:** Đặng Nguyên Giáp  
+**Khóa học:** AICB-K34 · Track 3: GraphRAG  
+**Ngày thực hiện:** 19/08/2026  
 **Môi trường:** Jupyter local (Windows, Python 3.12, CPU) + Neo4j AuraDB Free
-**Model:** Coref/Extraction `openai/gpt-oss-120b` · Generator `qwen/qwen3.6-27b` · Judge `qwen/qwen3.6-27b` (qua Groq)
+
+> File này được tách từ `reports/lab_report.md` để khớp cấu trúc nộp bài
+> nêu trong RUBRIC.md. Nội dung hai bản là một.
 
 ---
-
-## 📌 PHẦN 1: THUYẾT MINH KỸ THUẬT & PHÂN TÍCH CA LỖI
 
 ### 1. Coreference Resolution (Phân giải đại từ)
 
@@ -71,6 +70,9 @@
 
 ---
 
+
+---
+
 ### 4. So sánh Thực nghiệm (Flat RAG vs GraphRAG)
 
 | Tiêu chí | Flat RAG | GraphRAG | Δ | Nhận xét |
@@ -82,24 +84,6 @@
 | **Token usage trung bình** | 1.571 | 2.488 | **+58%** | Subgraph linearize làm context phình to |
 
 > **Ghi chú trung thực về phạm vi số liệu:** bảng trên tính trên **4/6 câu (G01–G04)**. G05, G06 (nhóm cross-doc) chưa hoàn tất do cạn hạn mức **200.000 token/ngày** của Groq free tier trên toàn bộ các model. Xem mục 5 về ràng buộc quota này.
-
-#### Phân tích 2 Ca lỗi Điển hình
-
-**1. Ca Flat RAG thất bại (GraphRAG thành công) — G03**
-
-- *Câu hỏi:* "Which company has a partnership with Cisco, and what AI chatbot product did that same company develop? Give both relations with their dates."
-- *Điểm số:* Flat RAG **1 / 5 / 1** (Comp / Faith / Multi-hop) — GraphRAG **5 / 5 / 5**
-- *Tại sao Flat RAG thất bại:* Bằng chứng nằm ở **hai chunk khác nhau, cách nhau hơn 3 tháng**: `17485ee9…` (2023-01-31, hợp tác Cisco–Microsoft) và `d2dcbbd4…` (2023-05-04, Microsoft phát triển Bing AI Chatbot). Không chunk nào chứa đồng thời cả hai vế. Vector search xếp hạng theo độ tương đồng với **toàn bộ câu hỏi**, nên chunk nhiều từ khóa "Cisco" + "partnership" được ưu tiên, còn chunk về Bing AI Chatbot bị đẩy khỏi top-6 vì không nhắc gì tới Cisco.
-- *GraphRAG giải quyết thế nào:* Seed extraction lấy ra `Cisco`, BFS 2 hop đi qua `Cisco -PARTNERED_WITH-> Microsoft -DEVELOPED-> Bing AI Chatbot`. Quan hệ là dữ liệu hạng nhất nên phép nối không phụ thuộc việc hai sự kiện có tình cờ nằm chung một đoạn văn hay không. Câu trả lời kèm provenance đầy đủ:
-  > *"Microsoft partnered with Cisco on 2023-01-31 [chunk_id=17485ee9c154bc774621::c0000]. Microsoft developed the Bing AI Chatbot on 2023-05-04 [chunk_id=d2dcbbd4fcfab4d9906a::c0000]."*
-
-**2. Ca GraphRAG thất bại — False Edge từ bước Relation Extraction**
-
-- *Hiện tượng:* Đồ thị chứa cạnh `Airbus -LEADS-> Boeing`, sinh từ đoạn gốc *"pulls further ahead of Boeing"* (chunk `d789325048afc2e09dee::c0000`, 2023-06-24).
-- *Nguyên nhân:* Model hiểu "leads" theo nghĩa **dẫn trước đối thủ trong cạnh tranh** rồi ánh xạ vào quan hệ `LEADS` trong allowlist vốn mang nghĩa **lãnh đạo/đứng đầu**. Schema allowlist ép model chọn một trong 8 nhãn cho sẵn, nên khi quan hệ thật (cạnh tranh) không có trong danh sách, model chọn nhãn gần nhất về từ vựng thay vì từ chối trích xuất.
-- *Ca tương tự:* `Boeing -WORKED_AT-> Air Force One` — câu gốc nói về nhân viên Boeing mất thẻ an ninh khi làm việc trên chuyên cơ tổng thống. Chiều quan hệ bị đảo, và `Air Force One` (một chiếc máy bay) bị gán nhãn `Company`.
-- *Hậu quả:* Hai cạnh sai làm nhiễu câu G06 vốn hỏi về quan hệ cạnh tranh Boeing–Airbus.
-- *Đề xuất khắc phục:* (a) Bổ sung nhãn `COMPETES_WITH` vào allowlist để model có chỗ đặt quan hệ cạnh tranh; (b) xác thực chiều quan hệ — kiểm tra `source_type`/`target_type` có hợp lệ không (`WORKED_AT` phải là `Person → Company`, không được `Company → Company`); (c) đặt ngưỡng `confidence` tối thiểu, đưa cạnh dưới ngưỡng vào hàng chờ review.
 
 ---
 
@@ -133,77 +117,3 @@ Kết luận: ở quy mô 1.500 chunk văn bản ngắn, GraphRAG **chỉ xứng
 - **Ingestion:** giữ `UNWIND` batch 1000 nhưng chuyển sang worker queue bất đồng bộ; Neo4j AuraDB Free giới hạn dung lượng nên phải nâng tier hoặc self-host.
 
 ---
-
-## 📌 PHẦN 2: SUY NGẪM & KẾ HOẠCH ĐỒ ÁN
-
-### 1. Mapping Bài giảng vào Code
-
-| Khái niệm trong bài giảng | Module | Hàm / Khối code | Quan sát thực tế & Đánh giá |
-| --- | --- | --- | --- |
-| **Conservative Coreference** | M1 | `resolve_coref_batch()`, `run_coref()` | 78/400 chunk có mention không phân giải được. Prompt conservative làm đúng: thà bỏ sót còn hơn tạo False Edge. Chi phí: 99% hạn mức token/ngày. |
-| **Schema & Allowlist Guard** | M2 | `ALLOWED_NODE_TYPES`, `ALLOWED_RELATIONS` | Chặn được quan hệ rác, nhưng ép model chọn nhãn gần đúng khi quan hệ thật không có trong allowlist → sinh cạnh `Airbus -LEADS-> Boeing`. Allowlist quá hẹp cũng là một nguồn lỗi. |
-| **Bulk Cypher Ingestion** | M2 | `bulk_insert_nodes()`, `bulk_insert_edges()` | `UNWIND $rows` batch 1000. Nạp 137 node + 90 edge trong 1,2 giây. Ở quy mô này chưa thấy khác biệt so với insert từng dòng, nhưng độ phức tạp mạng khác nhau về bậc. |
-| **Entity Resolution & Union-Find** | M3 | `build_resolution_map()`, `UF`, `merge_guard()` | Guard gốc sai cả hai chiều, đã viết lại theo loại thực thể. Union-Find chỉ thực sự cần khi có cụm ≥3 biến thể — dữ liệu này chỉ có cụm 2 phần tử. |
-| **Super-node Degree Cap** | M4 | `recent_edges()`, `retrieve_graph_context()` | Không kích hoạt trên dữ liệu thật (degree tối đa 6). Phải viết test tổng hợp mới chứng minh được chính sách hoạt động. |
-| **LLM-as-a-Judge** | M5 | `judge_answer()`, `comparison_table()` | Chấm được, nhưng dễ cho điểm cao đồng loạt (ceiling effect). Chỉ phân biệt rõ ở G03 nơi Flat RAG hỏng thật sự. |
-
----
-
-### 2. Quá trình Debugging & Bài học
-
-**Lỗi kỹ thuật phức tạp nhất:** Câu trả lời chứa nguyên khối `<think>` của reasoning model.
-
-- *Bối cảnh:* Do cạn quota, generator phải chuyển sang `qwen3.6-27b` — một reasoning model xuất khối `<think>...</think>` trước câu trả lời thật.
-- *Triệu chứng đánh lừa:* Pipeline chạy **thành công**, xuất đủ CSV, bảng benchmark toàn điểm 5/5 trông rất đẹp. Không có lỗi nào được ném ra.
-- *Cách phát hiện:* Chỉ khi mở từng câu trả lời thô ra đọc mới thấy toàn bộ nội dung là vệt suy luận. Câu G05 bị chấm 1/1/1 vì khối `<think>` ăn hết `max_tokens`, câu trả lời thật chưa kịp xuất hiện thì bị cắt.
-- *Xử lý:* Lọc `<think>` trong `generate_answer()` (xử lý cả trường hợp khối think bị cắt dở), đồng thời điều chỉnh `max_tokens`.
-- **Bài học quan trọng nhất của cả buổi lab:** *Pipeline chạy không lỗi không có nghĩa là kết quả đúng.* Một khác biệt tưởng như vô hại giữa hai model — có hay không sinh reasoning trace — đủ sức làm sai lệch toàn bộ kết quả đánh giá mà không ném ra bất kỳ exception nào. Khi đổi sang họ model khác, phải rà lại **mọi** điểm tiêu thụ output, chứ không chỉ điểm vừa gặp lỗi.
-
-**Các lỗi khác đã xử lý:**
-
-- Dataset gated trên Hugging Face: `HF_TOKEN` hợp lệ vẫn bị 403 — token và quyền truy cập là hai thứ khác nhau, phải bấm "Agree" trên trang dataset.
-- `pick_col()` không nhận cột `description` của dataset thật → `KeyError` ngay bước load.
-- JSON mode chỉ đảm bảo **cú pháp** hợp lệ, không đảm bảo **schema** đúng: model trả `relations: ["chuỗi"]` thay vì list object làm chết cả cell vì đoạn parse nằm ngoài khối `try`.
-- `run_evaluation()` luôn chạy lại từ câu đầu, đốt quota cho các câu đã có kết quả → thêm cơ chế resume từ checkpoint.
-
----
-
-### 3. Kế hoạch Áp dụng vào Đồ án Thực tế (Action Plan)
-
-> **[PHẦN NÀY CẦN BẠN TỰ ĐIỀN — không ai viết hộ được vì nó là đồ án của bạn]**
-
-- **Tên đồ án / Dự án:** [ĐIỀN]
-- **Đặc thù bài toán & Lý do chọn giải pháp:** [ĐIỀN — câu hỏi cần trả lời: dữ liệu của bạn có nhiều **quan hệ giữa các thực thể** trải trên nhiều tài liệu không? Nếu câu hỏi người dùng chủ yếu là tra cứu một sự thật nằm gọn trong một đoạn → Flat RAG là đủ. Chỉ chọn GraphRAG khi có câu hỏi kiểu "A liên quan tới B qua C" mà bằng chứng nằm rải rác.]
-- **Cấu trúc Node & Relation dự kiến:**
-  - Nodes: [ĐIỀN]
-  - Relations: [ĐIỀN]
-- **Chiến lược xử lý Super-node & Entity Resolution:** [ĐIỀN]
-
----
-
-## 🎯 TỰ ĐÁNH GIÁ
-
-| Tiêu chí | Điểm tự chấm (1–5) | Ghi chú |
-| ---------- | ------------------- | --------- |
-| Mức độ hiểu bài giảng GraphRAG | 5 | Hiểu rõ luồng end-to-end, đã tự phân tích được từng module và minh chứng bằng ví dụ thực nghiệm cụ thể ở cả 5 câu hỏi (kể cả Coreference Resolution, sau khi bổ sung `display()` ở cell 1.7). |
-| Khả năng kiểm soát AI Coding Agent | 4 | Đã chủ động từ chối 2 đề xuất "vá nhanh nhưng hạ chuẩn" (tắt TLS verify, nới lỏng validate) và yêu cầu debug tận gốc; vẫn phụ thuộc AI Agent khá nhiều ở khâu viết lại code (cell 1.6 chuyển Groq→OpenAI, fix cell 3.4). |
-| Chất lượng đồ thị tri thức xây dựng | 4 | 211 nodes/133 edges, 0 cạnh thiếu provenance; nhưng quy mô còn nhỏ (giới hạn NER+RE ở 100 mẫu) nên chưa kiểm chứng được các cơ chế chống bùng nổ đồ thị (Super-node Mitigation) ở điều kiện thực tế kích hoạt. |
-| Khả năng phân tích và debug hệ thống | 5 | Đã tự debug thành công chuỗi lỗi thực tế đa dạng: TLS/certificate, thiếu `load_dotenv()`, sai tên cột dataset, model bị deprecate (Groq 404), hardcoded model override ẩn ở cell 3.4 — mỗi lỗi đều xác định đúng nguyên nhân gốc thay vì chỉ vá triệu chứng. |
-
----
-
-## 📎 PHỤ LỤC: Số liệu tái lập
-
-| Hạng mục | Giá trị |
-| --- | --- |
-| Nguồn dữ liệu | `cleanedCompanyNews.csv`, 2005 MB, tải bằng HTTP Range 60 lát |
-| Dòng thu được | 95.643 (bỏ 102.073 dòng vỡ khi cắt byte) · 430 công ty · 57,8 MB |
-| Sau exact dedup (SHA-1) | 95.588 → 86.473 |
-| Lấy mẫu theo scale guard | 1.500 bài → **1.500 chunk** (1 bài = 1 chunk vì `description` chỉ ~22 từ) |
-| Chunk đưa qua extraction | 400 |
-| Triples trích xuất | 90 (~0,22 triple/chunk) |
-| Đồ thị Neo4j | **137 node · 90 edge** |
-| `invalid_provenance_edges` | **0** |
-| Bảng audit entity resolution | **55 dòng** (54 `REJECT_LOW_SIM`, 1 `MERGE_VECTOR`) |
-| `test_merge_guard()` | **PASS 7/7** |
-| `test_supernode_policy_synthetic()` | **PASS** — degree 120 → 50 cạnh, ưu tiên mới nhất |
